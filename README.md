@@ -14,3 +14,9 @@ Here are some ideas to get you started:
 - 😄 Pronouns: ...
 - ⚡ Fun fact: ...
 -->
+
+⚙️ Getting started working on Copilot!
+
+⌛ Previously worked on Cider (web-based IDE) at Google.
+
+⚡ Fun fact: I'm signed up for [Cryonics](https://en.wikipedia.org/wiki/Cryonics) -- feel free to ask me about it :)
