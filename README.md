@@ -13,7 +13,7 @@ Here are some ideas to get you started:
 - ⚡ Fun fact: ...
 -->
 
-⚙️ Getting started working on Copilot!
+⚙️ Working on [Copilot](https://copilot.github.com)!
 
 ⌛ Previously worked on Cider (web-based IDE) at Google.
 
