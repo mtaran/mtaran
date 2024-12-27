@@ -13,8 +13,8 @@ Here are some ideas to get you started:
 - ⚡ Fun fact: ...
 -->
 
-⚙️ Working on [Vivaria](https://github.com/metr/vivaria) at METR!
+<!-- ⚙️ Working on ! -->
 
-⌛ Previously worked on Copilot at GitHub and Cider (web-based IDE) at Google.
+⌛ Previously worked on [Vivaria](https://github.com/metr/vivaria) at METR, Copilot at GitHub and Cider (web-based IDE) at Google.
 
 ⚡ Fun fact: I'm signed up for [Cryonics](https://en.wikipedia.org/wiki/Cryonics) -- feel free to ask me about it :)
