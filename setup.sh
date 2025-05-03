@@ -1,71 +1,133 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Claude Code Setup Script for Ubuntu
-# This script installs NVM, the latest Node.js, Python, and Claude Code
+############################################
+# Config – tweak only if you need a pin
+############################################
+NVM_VERSION_LATEST="v0.40.3"     # last checked 2025‑04‑23
+PYENV_ROOT="${HOME}/.pyenv"      # pyenv install location
+GH_APT_SOURCE="/etc/apt/sources.list.d/github-cli.list"
 
-set -e  # Exit immediately if a command fails
+############################################
+# Helpers
+############################################
+log() { printf '\n\033[1;34m▶ %s\033[0m\n' "$*"; }
 
-# Print colored status messages
-function print_status() {
-    echo -e "\n\033[1;34m==>\033[0m \033[1m$1\033[0m"
+need_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+############################################
+# 1. nvm + latest Node.js (LTS)
+############################################
+install_nvm() {
+  if need_cmd nvm; then
+    log "nvm already installed – skipping"
+    return
+  fi
+
+  log "Installing nvm ${NVM_VERSION_LATEST}"
+  curl -fsSL "https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION_LATEST}/install.sh" | bash
+  # shellcheck source=/dev/null
+  export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh"
 }
 
-print_status "Updating package lists"
-sudo apt update
+install_latest_node() {
+  # load nvm in non‑login shells
+  export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+  local want="lts/*"            # change to "node" for bleeding‑edge stable
+  if nvm ls "$want" | grep -q "->"; then
+    log "Node ${want} already present – skipping"
+  else
+    log "Installing Node (${want})"
+    nvm install --lts --latest-npm
+    nvm alias default "$want"
+  fi
+}
 
-print_status "Installing dependencies"
-sudo apt install -y curl wget build-essential libssl-dev
+############################################
+# 2. Claude Code (global npm package)
+############################################
+install_claude_code() {
+  if need_cmd claude; then
+    log "Claude Code already installed – skipping"
+  else
+    log "Installing Claude Code CLI"
+    npm install -g @anthropic-ai/claude-code
+  fi
+}
 
-print_status "Installing NVM (Node Version Manager)"
-# Install NVM
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+############################################
+# 3. pyenv + newest CPython
+############################################
+install_pyenv() {
+  if [ -d "$PYENV_ROOT" ]; then
+    log "pyenv already cloned – pulling latest"
+    git -C "$PYENV_ROOT" pull
+  else
+    log "Cloning pyenv"
+    git clone https://github.com/pyenv/pyenv.git "$PYENV_ROOT"
+  fi
 
-# Source NVM for current session
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
-[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
+  # shellcheck disable=SC1091
+  export PATH="$PYENV_ROOT/bin:$PATH"
+  eval "$(pyenv init -)"
+}
 
-# Verify NVM installation
-nvm --version
-if [ $? -ne 0 ]; then
-    print_status "NVM installation failed. Please check the error messages above."
-    exit 1
-fi
+install_latest_python() {
+  # Get newest stable 3.x release string (excludes dev / rc tracks)
+  local latest
+  latest=$(pyenv install --list \
+            | grep -E '^\s*3\.[0-9]+\.[0-9]+$' \
+            | tail -1 | tr -d ' ')
+  if pyenv versions --bare | grep -q "^${latest}\$"; then
+    log "Python ${latest} already installed – skipping"
+  else
+    log "Installing Python ${latest}"
+    # Ensure build deps (harmless to reinstall)
+    sudo apt-get update -qq
+    sudo apt-get install -y --no-install-recommends \
+         build-essential libssl-dev zlib1g-dev \
+         libbz2-dev libreadline-dev libsqlite3-dev \
+         libncursesw5-dev xz-utils tk-dev libxml2-dev \
+         libxmlsec1-dev libffi-dev liblzma-dev
+    pyenv install "${latest}"
+  fi
+  pyenv global "${latest}"
+}
 
-print_status "Installing latest stable Node.js version using NVM"
-nvm install --lts
-nvm use --lts
+############################################
+# 4. GitHub CLI (gh)
+############################################
+install_gh_cli() {
+  if need_cmd gh; then
+    log "gh already installed – skipping"
+    return
+  fi
+  log "Installing GitHub CLI"
+  if [ ! -f "${GH_APT_SOURCE}" ]; then
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] \
+      https://cli.github.com/packages stable main" \
+      | sudo tee "${GH_APT_SOURCE}" > /dev/null
+  fi
+  sudo apt-get update -qq
+  sudo apt-get install -y gh
+}
 
-# Set the installed version as default
-nvm alias default node
+############################################
+# Kick‑off
+############################################
+main() {
+  log "🔧 Starting idempotent toolchain bootstrap…"
 
-# Verify installations
-node_version=$(node -v)
-npm_version=$(npm -v)
-print_status "Installed Node.js $node_version and npm $npm_version"
+  install_nvm
+  install_latest_node
+  install_claude_code
+  install_pyenv
+  install_latest_python
+  install_gh_cli
 
-print_status "Installing latest Python"
-sudo apt install -y python3 python3-pip
+  log "✅  Done!  Open a new shell or run 'exec \$SHELL' to refresh your environment."
+}
 
-# Verify Python installation
-python_version=$(python3 --version)
-print_status "Installed $python_version"
-
-print_status "Installing Claude Code globally"
-npm install -g @anthropic/claude-code
-
-print_status "Creating configuration directory"
-mkdir -p "$HOME/.config/anthropic"
-
-print_status "Installation complete!"
-echo "To use Claude Code:"
-echo "1. Make sure you have an Anthropic API key"
-echo "2. Run 'claude-code' to start using the CLI"
-echo "3. On first run, you'll be prompted to enter your API key"
-echo ""
-echo "For new terminal sessions, you may need to run:"
-echo "  export NVM_DIR=\"\$HOME/.nvm\""
-echo "  [ -s \"\$NVM_DIR/nvm.sh\" ] && \. \"\$NVM_DIR/nvm.sh\"  # This loads nvm"
-echo ""
-echo "If you encountered any issues, please visit https://support.anthropic.com"
-echo "For API documentation, see https://docs.anthropic.com/en/docs/"
+main "$@"
