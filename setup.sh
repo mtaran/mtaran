@@ -10,12 +10,6 @@ function print_status() {
     echo -e "\n\033[1;34m==>\033[0m \033[1m$1\033[0m"
 }
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo "Please do not run this script as root or with sudo."
-    exit 1
-fi
-
 print_status "Updating package lists"
 sudo apt update
 
